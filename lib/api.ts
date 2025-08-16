@@ -1,3 +1,4 @@
+
 interface LeadRequest {
   size: string
   niche: string
@@ -102,7 +103,7 @@ interface LeadGenerationHistoryResponse {
 }
 
 export async function generateLeads(request: LeadRequest): Promise<LeadResponse> {
-  const response = await fetch("/api/generate-leads", {
+  const response = await fetch(process.env.BACKEND_URL + "/api/generate-leads", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -118,7 +119,7 @@ export async function generateLeads(request: LeadRequest): Promise<LeadResponse>
 }
 
 export async function sendEmails(request: EmailRequest): Promise<EmailResponse> {
-  const response = await fetch("/api/send-emails", {
+  const response = await fetch(process.env.BACKEND_URL + "/api/send-emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -134,7 +135,7 @@ export async function sendEmails(request: EmailRequest): Promise<EmailResponse> 
 }
 
 export async function getContacts(baseFilename: string): Promise<ContactsResponse> {
-  const response = await fetch(`/api/get-contacts/${baseFilename}`, {
+  const response = await fetch(`${process.env.BACKEND_URL}/api/get-contacts/${baseFilename}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -149,7 +150,7 @@ export async function getContacts(baseFilename: string): Promise<ContactsRespons
 }
 
 export async function getTodaysLeads(): Promise<LeadGenerationHistoryResponse> {
-  const response = await fetch("/api/leads/today", {
+  const response = await fetch(`${process.env.BACKEND_URL}/api/leads/today`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -164,7 +165,7 @@ export async function getTodaysLeads(): Promise<LeadGenerationHistoryResponse> {
 }
 
 export async function getLeadsByDate(date: string): Promise<LeadGenerationHistoryResponse> {
-  const response = await fetch(`/api/leads/date/${date}`, {
+  const response = await fetch(`${process.env.BACKEND_URL}/api/leads/date/${date}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
