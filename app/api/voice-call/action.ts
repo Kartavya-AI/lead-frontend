@@ -1,7 +1,7 @@
 "use server";
 import axios from "axios";
 
-const api_url = "http://localhost:9000/api/calls";
+const api_url = "https://deepgram-api-977121587860.asia-south2.run.app/api/calls";
 
 export const makeCall = async (to_number: string) => {
   try {
