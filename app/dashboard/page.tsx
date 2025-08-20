@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { makeCall } from "../api/voice-call/action"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -103,6 +104,11 @@ export default function DashboardPage() {
   // Subject preview dialog states
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [selectedLeadForPreview, setSelectedLeadForPreview] = useState<Lead | null>(null)
+
+  // Phone dialog states
+  const [showPhoneDialog, setShowPhoneDialog] = useState(false)
+  const [selectedLeadForCall, setSelectedLeadForCall] = useState<Lead | null>(null)
+  const [editablePhoneNumber, setEditablePhoneNumber] = useState("")
 
   const [formData, setFormData] = useState<LeadRequest>({
     size: "",
@@ -488,40 +494,12 @@ export default function DashboardPage() {
   const userName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "User"
   const userEmail = currentUser?.email || ""
 
-  const makeCall = async (lead: Lead) => {
-    if (!lead.phone) {
-      alert("No phone number available for this lead")
-      return
-    }
-
-    setCallStatuses((prev) => ({ ...prev, [lead.email]: "calling" }))
-
-    try {
-      const response = await fetch("/api/voice-call", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phoneNumber: lead.phone,
-          systemPrompt: `Hello! I'm calling ${lead.name} regarding your business inquiry about ${lead.subject}. I'd like to discuss how our services can help you generate more leads and grow your business. Is this a good time to talk?`,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (response.ok) {
-        setCallStatuses((prev) => ({ ...prev, [lead.email]: "called" }))
-        setCallsMade((prev) => prev + 1)
-        alert(`Call initiated successfully! Call SID: ${result.callSid}`)
-      } else {
-        throw new Error(result.error || "Failed to make call")
-      }
-    } catch (error) {
-      console.error("Call error:", error)
-      setCallStatuses((prev) => ({ ...prev, [lead.email]: "failed" }))
-      alert(`Failed to make call: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
+  const openPhoneDialog = (lead: Lead) => {
+    setSelectedLeadForCall(lead)
+    // Handle cases where phone is missing, undefined, or "na"
+    const currentPhone = lead.phone && lead.phone !== "na" ? lead.phone : ""
+    setEditablePhoneNumber(currentPhone)
+    setShowPhoneDialog(true)
   }
 
   const getCallButtonContent = (lead: Lead) => {
@@ -1025,19 +1003,17 @@ export default function DashboardPage() {
                                 >
                                   {getEmailButtonContent(index)}
                                 </Button>
-                                {lead.phone && (
-                                  <Button
-                                    size="sm"
-                                    className={getCallButtonStyle(lead)}
-                                    onClick={() => makeCall(lead)}
-                                    disabled={
-                                      callStatuses.get(lead.email) === "calling" ||
-                                      callStatuses.get(lead.email) === "called"
-                                    }
-                                  >
-                                    {getCallButtonContent(lead)}
-                                  </Button>
-                                )}
+                                <Button
+                                  size="sm"
+                                  className={getCallButtonStyle(lead)}
+                                  onClick={() => openPhoneDialog(lead)}
+                                  disabled={
+                                    callStatuses.get(lead.email) === "calling" ||
+                                    callStatuses.get(lead.email) === "called"
+                                  }
+                                >
+                                  {getCallButtonContent(lead)}
+                                </Button>
                                 <Button size="sm" variant="outline" className="border-slate-300 bg-transparent">
                                   <Eye className="h-4 w-4" />
                                 </Button>
@@ -1293,6 +1269,108 @@ export default function DashboardPage() {
                 <Mail className="h-4 w-4 mr-2" />
                 Send Email
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Phone Dialog */}
+        <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
+          <DialogContent className="max-w-md mx-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5 text-cyan-600" />
+                Edit Phone Number
+              </DialogTitle>
+              <DialogDescription>
+                {selectedLeadForCall && (
+                  <>
+                    {selectedLeadForCall.phone && selectedLeadForCall.phone !== "na" ? (
+                      <>Calling <strong>{selectedLeadForCall.name}</strong></>
+                    ) : (
+                      <>
+                        Add phone number for <strong>{selectedLeadForCall.name}</strong> to make a call
+                      </>
+                    )}
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
+                  Phone Number
+                </Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  value={editablePhoneNumber}
+                  onChange={(e) => setEditablePhoneNumber(e.target.value)}
+                  placeholder={editablePhoneNumber ? editablePhoneNumber : "+1234567890"}
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1 font-bold">
+                  Include country code (e.g., +1 for US, +91 for India)
+                </p>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-md border">
+                <p className="text-sm text-slate-600">
+                  <strong>Current Call Script:</strong>
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {selectedLeadForCall && (
+                    <>
+                      "Hello! I'm calling {selectedLeadForCall.name} regarding your business inquiry about{" "}
+                      {selectedLeadForCall.subject}. I'd like to discuss how our services can help you generate more leads and grow your business. Is this a good time to talk?"
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4">
+              <Button variant="outline" onClick={() => setShowPhoneDialog(false)}>
+                Cancel
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (selectedLeadForCall) {
+                      const originalPhone = selectedLeadForCall.phone && selectedLeadForCall.phone !== "na" 
+                        ? selectedLeadForCall.phone 
+                        : ""
+                      setEditablePhoneNumber(originalPhone)
+                    }
+                  }}
+                  className="text-slate-600"
+                >
+                  Reset
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedLeadForCall && editablePhoneNumber.trim()) {
+                      // Validate phone number format
+                      const phoneRegex = /^[+]?[1-9]\d{1,14}$/
+                      if (!phoneRegex.test(editablePhoneNumber.trim())) {
+                        alert("Please enter a valid phone number with country code (e.g., +1234567890)")
+                        return
+                      }
+                      
+                      setShowPhoneDialog(false)
+                      makeCall(editablePhoneNumber.trim())
+                    } else {
+                      alert("Please enter a valid phone number")
+                    }
+                  }}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                  disabled={!editablePhoneNumber.trim()}
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Make Call
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
